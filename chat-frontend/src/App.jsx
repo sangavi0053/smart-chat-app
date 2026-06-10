@@ -1,122 +1,313 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from "react";
+import io from "socket.io-client";
+import "./App.css";
+import Login from "./Login";
+import Register from "./Register";
 
-function App() {
-  const [count, setCount] = useState(0)
+const socket = io("https://smart-chat-backend.onrender.com", {
+  autoConnect: false
+});
+
+export default function App() {
+
+  const [page, setPage] = useState("login");
+  const [username, setUsername] = useState("");
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState("");
+  const [message, setMessage] = useState("");
+  const [chat, setChat] = useState([]);
+  const [typingUser, setTypingUser] = useState("");
+  const [showProfile, setShowProfile] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState(null);
+
+  /* ---------------- LOAD OLD MESSAGES ---------------- */
+
+  useEffect(() => {
+    async function loadMessages() {
+      if (!selectedUser) return;
+      try {
+        const res = await fetch(
+          `https://smart-chat-backend.onrender.com/messages/${username}/${selectedUser}`
+        );
+        const data = await res.json();
+        setChat(data);
+      } catch (error) {
+        console.log(error);
+      }
+    }
+    loadMessages();
+  }, [selectedUser, username]);
+
+  /* ---------------- LOAD PROFILE PHOTO ---------------- */
+
+  useEffect(() => {
+    if (!username) return;
+    async function loadPhoto() {
+      try {
+        const res = await fetch(
+          `https://smart-chat-backend.onrender.com/api/profile/${username}`
+        );
+        const data = await res.json();
+        if (data.photo) {
+          setProfilePhoto(`https://smart-chat-backend.onrender.com${data.photo}`);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+    loadPhoto();
+  }, [username]);
+
+  /* ---------------- SOCKET EVENTS ---------------- */
+
+  useEffect(() => {
+
+    socket.on("connect", () => {
+      console.log("Connected:", socket.id);
+    });
+
+    socket.on("users", (usersList) => {
+      setUsers([...usersList]);
+    });
+
+    socket.on("receive_private", (data) => {
+      setChat((prev) => [...prev, data]);
+    });
+
+    socket.on("typing", (user) => {
+      setTypingUser(user);
+    });
+
+    socket.on("stopTyping", () => {
+      setTypingUser("");
+    });
+
+    return () => {
+      socket.off("connect");
+      socket.off("users");
+      socket.off("receive_private");
+      socket.off("typing");
+      socket.off("stopTyping");
+    };
+
+  }, []);
+
+  /* ---------------- HANDLE LOGIN ---------------- */
+
+  function handleLogin(loggedUsername) {
+    setUsername(loggedUsername);
+    socket.connect();
+    socket.once("connect", () => {
+      socket.emit("join", loggedUsername);
+    });
+    setPage("chat");
+  }
+
+  /* ---------------- SEND MESSAGE ---------------- */
+
+  function sendMessage() {
+    if (!message.trim()) return;
+    if (!selectedUser) {
+      alert("Select a user");
+      return;
+    }
+    const data = {
+      sender: username,
+      receiver: selectedUser,
+      message: message,
+    };
+    socket.emit("private_message", data);
+    socket.emit("stopTyping");
+    setMessage("");
+  }
+
+  /* ---------------- UPLOAD PHOTO ---------------- */
+
+  async function uploadPhoto(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("photo", file);
+    formData.append("username", username);
+    try {
+      const res = await fetch(
+        "https://smart-chat-backend.onrender.com/api/profile/photo",
+        { method: "POST", body: formData }
+      );
+      const data = await res.json();
+      setProfilePhoto(`https://smart-chat-backend.onrender.com${data.photoUrl}`);
+      alert("Profile photo updated!");
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  /* ---------------- LOGOUT ---------------- */
+
+  function logout() {
+    socket.disconnect();
+    setUsername("");
+    setUsers([]);
+    setSelectedUser("");
+    setChat([]);
+    setProfilePhoto(null);
+    setShowProfile(false);
+    setPage("login");
+  }
+
+  /* ---------------- SHOW LOGIN PAGE ---------------- */
+
+  if (page === "login") {
+    return (
+      <Login
+        onLogin={handleLogin}
+        onSwitch={() => setPage("register")}
+      />
+    );
+  }
+
+  /* ---------------- SHOW REGISTER PAGE ---------------- */
+
+  if (page === "register") {
+    return (
+      <Register
+        onSwitch={() => setPage("login")}
+      />
+    );
+  }
+
+  /* ---------------- CHAT PAGE ---------------- */
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+    <div className="chat-layout">
+
+      <div className="sidebar">
+
+        <div
+          className="profile-btn"
+          onClick={() => setShowProfile(!showProfile)}
         >
-          Count is {count}
+          {profilePhoto ? (
+            <img src={profilePhoto} alt="profile" className="profile-img" />
+          ) : (
+            <div className="profile-placeholder">
+              {username?.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <span>{username}</span>
+        </div>
+
+        {showProfile && (
+          <div className="profile-panel">
+            <h3>My Profile</h3>
+            <div className="profile-photo-container">
+              {profilePhoto ? (
+                <img src={profilePhoto} alt="profile" className="profile-photo-big" />
+              ) : (
+                <div className="profile-placeholder-big">
+                  {username?.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <p className="profile-username">{username}</p>
+            <label className="upload-btn">
+              📷 Change Photo
+              <input
+                type="file"
+                accept="image/*"
+                onChange={uploadPhoto}
+                style={{ display: "none" }}
+              />
+            </label>
+            <button
+              className="close-profile-btn"
+              onClick={() => setShowProfile(false)}
+            >
+              Close
+            </button>
+          </div>
+        )}
+
+        <div className="sidebar-header">Online Users</div>
+        <div className="users-list">
+          {users.filter(u => u !== username).length === 0 ? (
+            <div style={{ color: "white", padding: "10px" }}>
+              No online user
+            </div>
+          ) : (
+            users.filter(u => u !== username).map((u, i) => (
+              <div
+                key={i}
+                className={`user-item ${selectedUser === u ? "active-user" : ""}`}
+                onClick={() => setSelectedUser(u)}
+              >
+                🟢 {u}
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* ✅ LOGOUT BUTTON */}
+        <button className="logout-btn" onClick={logout}>
+          🚪 Logout
         </button>
-      </section>
 
-      <div className="ticks"></div>
+      </div>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <div className="chat-section">
+
+        <div className="chat-header">
+          {selectedUser ? `Chat with ${selectedUser}` : "Select a user"}
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        <div className="messages-area">
+          {chat
+            .filter((m) =>
+              (m.sender === username && m.receiver === selectedUser) ||
+              (m.sender === selectedUser && m.receiver === username)
+            )
+            .map((m, i) => (
+              <div
+                key={i}
+                className={`message ${m.sender === username ? "right" : "left"}`}
+              >
+                <div className="msg-user">{m.sender}</div>
+                <div className="msg-text">{m.message}</div>
+              </div>
+            ))}
+        </div>
+
+        {typingUser && typingUser !== username && (
+          <div style={{
+            paddingLeft: "20px",
+            color: "gray",
+            fontSize: "14px",
+            marginBottom: "10px",
+          }}>
+            {typingUser} is typing...
+          </div>
+        )}
+
+        <div className="message-input">
+          <input
+            type="text"
+            placeholder="Type a message..."
+            value={message}
+            onChange={(e) => {
+              setMessage(e.target.value);
+              socket.emit("typing", username);
+              clearTimeout(window.typingTimeout);
+              window.typingTimeout = setTimeout(() => {
+                socket.emit("stopTyping");
+              }, 1000);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          />
+          <button onClick={sendMessage}>Send</button>
+        </div>
+
+      </div>
+    </div>
+  );
 }
 
-export default App
