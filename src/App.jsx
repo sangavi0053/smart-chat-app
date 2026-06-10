@@ -4,7 +4,7 @@ import "./App.css";
 import Login from "./Login";
 import Register from "./Register";
 
-const socket = io("http://localhost:3000", {
+const socket = io("https://smart-chat-backend.onrender.com", {
   autoConnect: false
 });
 
@@ -27,7 +27,7 @@ export default function App() {
       if (!selectedUser) return;
       try {
         const res = await fetch(
-          `http://localhost:3000/messages/${username}/${selectedUser}`
+          `https://smart-chat-backend.onrender.com/messages/${username}/${selectedUser}`
         );
         const data = await res.json();
         setChat(data);
@@ -45,11 +45,11 @@ export default function App() {
     async function loadPhoto() {
       try {
         const res = await fetch(
-          `http://localhost:3000/api/profile/${username}`
+          `https://smart-chat-backend.onrender.com/api/profile/${username}`
         );
         const data = await res.json();
         if (data.photo) {
-          setProfilePhoto(`http://localhost:3000${data.photo}`);
+          setProfilePhoto(`https://smart-chat-backend.onrender.com${data.photo}`);
         }
       } catch (error) {
         console.log(error);
@@ -131,11 +131,11 @@ export default function App() {
     formData.append("username", username);
     try {
       const res = await fetch(
-        "http://localhost:3000/api/profile/photo",
+        "https://smart-chat-backend.onrender.com/api/profile/photo",
         { method: "POST", body: formData }
       );
       const data = await res.json();
-      setProfilePhoto(`http://localhost:3000${data.photoUrl}`);
+      setProfilePhoto(`https://smart-chat-backend.onrender.com${data.photoUrl}`);
       alert("Profile photo updated!");
     } catch (error) {
       console.log(error);
@@ -310,3 +310,4 @@ export default function App() {
     </div>
   );
 }
+
