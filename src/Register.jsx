@@ -104,6 +104,14 @@ export default function Register({ onSwitch }) {
 
       </div>
     </div>
-  );
+  )
 }
+
+
+
+
+
+
+
+
 
