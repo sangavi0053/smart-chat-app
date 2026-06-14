@@ -9,7 +9,6 @@ const socket = io("https://smart-chat-backend.onrender.com", {
 });
 
 export default function App() {
-
   const [page, setPage] = useState("login");
   const [username, setUsername] = useState("");
   const [users, setUsers] = useState([]);
@@ -19,8 +18,6 @@ export default function App() {
   const [typingUser, setTypingUser] = useState("");
   const [showProfile, setShowProfile] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState(null);
-
-  /* ---------------- LOAD OLD MESSAGES ---------------- */
 
   useEffect(() => {
     async function loadMessages() {
@@ -37,8 +34,6 @@ export default function App() {
     }
     loadMessages();
   }, [selectedUser, username]);
-
-  /* ---------------- LOAD PROFILE PHOTO ---------------- */
 
   useEffect(() => {
     if (!username) return;
@@ -58,30 +53,12 @@ export default function App() {
     loadPhoto();
   }, [username]);
 
-  /* ---------------- SOCKET EVENTS ---------------- */
-
   useEffect(() => {
-
-    socket.on("connect", () => {
-      console.log("Connected:", socket.id);
-    });
-
-    socket.on("users", (usersList) => {
-      setUsers([...usersList]);
-    });
-
-    socket.on("receive_private", (data) => {
-      setChat((prev) => [...prev, data]);
-    });
-
-    socket.on("typing", (user) => {
-      setTypingUser(user);
-    });
-
-    socket.on("stopTyping", () => {
-      setTypingUser("");
-    });
-
+    socket.on("connect", () => console.log("Connected:", socket.id));
+    socket.on("users", (usersList) => setUsers([...usersList]));
+    socket.on("receive_private", (data) => setChat((prev) => [...prev, data]));
+    socket.on("typing", (user) => setTypingUser(user));
+    socket.on("stopTyping", () => setTypingUser(""));
     return () => {
       socket.off("connect");
       socket.off("users");
@@ -89,39 +66,23 @@ export default function App() {
       socket.off("typing");
       socket.off("stopTyping");
     };
-
   }, []);
-
-  /* ---------------- HANDLE LOGIN ---------------- */
 
   function handleLogin(loggedUsername) {
     setUsername(loggedUsername);
     socket.connect();
-    socket.once("connect", () => {
-      socket.emit("join", loggedUsername);
-    });
+    socket.once("connect", () => socket.emit("join", loggedUsername));
     setPage("chat");
   }
 
-  /* ---------------- SEND MESSAGE ---------------- */
-
   function sendMessage() {
     if (!message.trim()) return;
-    if (!selectedUser) {
-      alert("Select a user");
-      return;
-    }
-    const data = {
-      sender: username,
-      receiver: selectedUser,
-      message: message,
-    };
+    if (!selectedUser) { alert("Select a user"); return; }
+    const data = { sender: username, receiver: selectedUser, message };
     socket.emit("private_message", data);
     socket.emit("stopTyping");
     setMessage("");
   }
-
-  /* ---------------- UPLOAD PHOTO ---------------- */
 
   async function uploadPhoto(e) {
     const file = e.target.files[0];
@@ -142,57 +103,24 @@ export default function App() {
     }
   }
 
-  /* ---------------- LOGOUT ---------------- */
-
   function logout() {
     socket.disconnect();
-    setUsername("");
-    setUsers([]);
-    setSelectedUser("");
-    setChat([]);
-    setProfilePhoto(null);
-    setShowProfile(false);
-    setPage("login");
+    setUsername(""); setUsers([]); setSelectedUser("");
+    setChat([]); setProfilePhoto(null);
+    setShowProfile(false); setPage("login");
   }
 
-  /* ---------------- SHOW LOGIN PAGE ---------------- */
-
-  if (page === "login") {
-    return (
-      <Login
-        onLogin={handleLogin}
-        onSwitch={() => setPage("register")}
-      />
-    );
-  }
-
-  /* ---------------- SHOW REGISTER PAGE ---------------- */
-
-  if (page === "register") {
-    return (
-      <Register
-        onSwitch={() => setPage("login")}
-      />
-    );
-  }
-
-  /* ---------------- CHAT PAGE ---------------- */
+  if (page === "login") return <Login onLogin={handleLogin} onSwitch={() => setPage("register")} />;
+  if (page === "register") return <Register onSwitch={() => setPage("login")} />;
 
   return (
     <div className="chat-layout">
-
       <div className="sidebar">
-
-        <div
-          className="profile-btn"
-          onClick={() => setShowProfile(!showProfile)}
-        >
+        <div className="profile-btn" onClick={() => setShowProfile(!showProfile)}>
           {profilePhoto ? (
             <img src={profilePhoto} alt="profile" className="profile-img" />
           ) : (
-            <div className="profile-placeholder">
-              {username?.charAt(0).toUpperCase()}
-            </div>
+            <div className="profile-placeholder">{username?.charAt(0).toUpperCase()}</div>
           )}
           <span>{username}</span>
         </div>
@@ -204,36 +132,22 @@ export default function App() {
               {profilePhoto ? (
                 <img src={profilePhoto} alt="profile" className="profile-photo-big" />
               ) : (
-                <div className="profile-placeholder-big">
-                  {username?.charAt(0).toUpperCase()}
-                </div>
+                <div className="profile-placeholder-big">{username?.charAt(0).toUpperCase()}</div>
               )}
             </div>
             <p className="profile-username">{username}</p>
             <label className="upload-btn">
               📷 Change Photo
-              <input
-                type="file"
-                accept="image/*"
-                onChange={uploadPhoto}
-                style={{ display: "none" }}
-              />
+              <input type="file" accept="image/*" onChange={uploadPhoto} style={{ display: "none" }} />
             </label>
-            <button
-              className="close-profile-btn"
-              onClick={() => setShowProfile(false)}
-            >
-              Close
-            </button>
+            <button className="close-profile-btn" onClick={() => setShowProfile(false)}>Close</button>
           </div>
         )}
 
         <div className="sidebar-header">Online Users</div>
         <div className="users-list">
           {users.filter(u => u !== username).length === 0 ? (
-            <div style={{ color: "white", padding: "10px" }}>
-              No online user
-            </div>
+            <div style={{ color: "#4b5563", padding: "12px", fontSize: "13px" }}>No users online</div>
           ) : (
             users.filter(u => u !== username).map((u, i) => (
               <div
@@ -247,30 +161,22 @@ export default function App() {
           )}
         </div>
 
-        {/* ✅ LOGOUT BUTTON */}
-        <button className="logout-btn" onClick={logout}>
-          🚪 Logout
-        </button>
-
+        <button className="logout-btn" onClick={logout}>🚪 Logout</button>
       </div>
 
       <div className="chat-section">
-
         <div className="chat-header">
-          {selectedUser ? `Chat with ${selectedUser}` : "Select a user"}
+          {selectedUser ? `💬 Chat with ${selectedUser}` : "Select a user to start chatting"}
         </div>
 
         <div className="messages-area">
           {chat
-            .filter((m) =>
+            .filter(m =>
               (m.sender === username && m.receiver === selectedUser) ||
               (m.sender === selectedUser && m.receiver === username)
             )
             .map((m, i) => (
-              <div
-                key={i}
-                className={`message ${m.sender === username ? "right" : "left"}`}
-              >
+              <div key={i} className={`message ${m.sender === username ? "right" : "left"}`}>
                 <div className="msg-user">{m.sender}</div>
                 <div className="msg-text">{m.message}</div>
               </div>
@@ -278,13 +184,11 @@ export default function App() {
         </div>
 
         {typingUser && typingUser !== username && (
-          <div style={{
-            paddingLeft: "20px",
-            color: "gray",
-            fontSize: "14px",
-            marginBottom: "10px",
-          }}>
-            {typingUser} is typing...
+          <div className="typing-indicator">
+            {typingUser} is typing
+            <div className="typing-dots">
+              <span></span><span></span><span></span>
+            </div>
           </div>
         )}
 
@@ -297,18 +201,13 @@ export default function App() {
               setMessage(e.target.value);
               socket.emit("typing", username);
               clearTimeout(window.typingTimeout);
-              window.typingTimeout = setTimeout(() => {
-                socket.emit("stopTyping");
-              }, 1000);
+              window.typingTimeout = setTimeout(() => socket.emit("stopTyping"), 1000);
             }}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
-          <button onClick={sendMessage}>Send</button>
+          <button onClick={sendMessage}>Send ➤</button>
         </div>
-
       </div>
     </div>
   );
 }
-
-
